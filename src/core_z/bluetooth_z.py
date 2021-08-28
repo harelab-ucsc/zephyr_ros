@@ -8,7 +8,7 @@ from queue import Queue
 
 import bluetooth
 
-from .protocol import encode_message, MC, MI, Message, decode_bytestream
+from core_z.protocol import encode_message, MC, MI, Message, decode_bytestream
 
 logger = logging.getLogger(__name__)
 
