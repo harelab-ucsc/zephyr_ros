@@ -2,19 +2,32 @@
 
  #"args": ["--address A4:34:F1:EA:1C:A2"]
 import sys
+
+from matplotlib.pyplot import pause
 import rospy
 import std_msgs.msg
 
 from core_z.zephyr_dev_async import *
 from zephyr.msg import *
 
+import pyphysio as ph
 
-"""Questions:
-1. How to deal with Waveform messages?
--Can use Biosppy to extract data as we want
--For now, just use the summary data"""
+"""Need 30s per waveform for accurate detection (Heard & Adams Paper)
+
+Breathing Waveform - Report Fq: 1.008Hz
+                     Samples/Report: 18 samples
+                     Time between samples: 56ms
+                     Data Min Needed: 30 Waveforms
+                    
+ECG Waveform - Report Fq: 252Hz
+               Samples/Report: 63 samples
+               Time between samples: 4ms
+               Data Min Needed: 119 Waveforms"""
 
 class ROSActions(ZephyrDataActions):
+    
+    
+    
     
     def __init__(self):
         super(ROSActions, self).__init__()
@@ -29,6 +42,10 @@ class ROSActions(ZephyrDataActions):
         self.hrv_time = rospy.Time.now()
         self.br_time = rospy.Time.now()         
         
+        self.rr_wv = []
+        self.ecg_wv = []
+        
+        self.switch = 0
     def onSummary(self,msg):
         self.rate = rospy.Rate(10)
         header = std_msgs.msg.Header()
@@ -63,7 +80,15 @@ class ROSActions(ZephyrDataActions):
         
         self.rate.sleep()
             
-    #def onECG(self, msg):
+    def onECG(self, msg):
+        self.ecg_wv.append(msg.waveform)
+        print(len(self.ecg_wv))
+        if len(self.ecg_wv) >= 10: # Waveforms needed for 30s of data
+            flat_ecg = [item for elem in self.ecg_wv for item in elem]
+            ecg = ph.EvenlySignal(values = flat_ecg, sampling_freq = 63, signal_type = 'ecg')
+            ecg.plot('r')
+            #self.rr_wv.pop(0)
+            pause(.001)
     #    #8 msgs per bluetooth payload
     #    self.rate = rospy.Rate(10)
     #    ecg = msg.waveform
@@ -77,6 +102,19 @@ class ROSActions(ZephyrDataActions):
     #        msg.temp = ecg[i]
     #        self.ecg_pub.publish(msg)
     #        self.rate.sleep()
+    def onBreath(self, msg):
+      #  self.rr_wv.append(msg.waveform)
+      #  print(len(self.rr_wv))
+      #  if len(self.rr_wv) >= 10: # Waveforms needed for 30s of data
+      #      flat_rr = [item for elem in self.rr_wv for item in elem]
+      #      rr = ph.EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
+      #      rr.plot()
+      #      #self.rr_wv.pop(0)
+      #      pause(1)
+            
+            
+            
+        pass
 
     @classmethod
     def timeParse(cls, previous_time, msg_split):        
