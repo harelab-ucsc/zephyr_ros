@@ -188,7 +188,7 @@ def getArgs(argv=None):
                    default='1', choices=['0', '1'])
     
     args = p.parse_args(argv[1:])
-    args.address = "A4:34:F1:F1:67:8F" # in case you want to hard code the mac address
+    #args.address = "A4:34:F1:F1:67:8F" # in case you want to hard code the mac address
     return args
     
 
