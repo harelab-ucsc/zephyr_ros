@@ -26,9 +26,6 @@ ECG Waveform - Report Fq: 252Hz
 
 class ROSActions(ZephyrDataActions):
     
-    
-    
-    
     def __init__(self):
         super(ROSActions, self).__init__()
         #'topic name', msg type, queue_size = 10 <-standard queue size
@@ -36,11 +33,9 @@ class ROSActions(ZephyrDataActions):
         self.hrv_pub = rospy.Publisher('hrv', HRV, queue_size=10)
         self.br_pub = rospy.Publisher('br', Breath, queue_size=10)
         
-        #self.ecg_pub = rospy.Publisher('ECG', SkinTemp, queue_size=10)
+        #self.ecg_pub = rospy.Publisher('ECG', SkinTemp, queue_size=10)        
+        self.rwv_pub = rospy.Publisher('rwv', RWV, queue_size=10)
         
-        self.hr_time = rospy.Time.now()
-        self.hrv_time = rospy.Time.now()
-        self.br_time = rospy.Time.now()         
         
         self.rr_wv = []
         self.ecg_wv = []
@@ -82,39 +77,47 @@ class ROSActions(ZephyrDataActions):
             
     def onECG(self, msg):
         self.ecg_wv.append(msg.waveform)
-        print(len(self.ecg_wv))
-        if len(self.ecg_wv) >= 10: # Waveforms needed for 30s of data
+        #print(len(self.ecg_wv))
+        if len(self.ecg_wv) >= 10: # 119 Waveforms needed for 30s of data
             flat_ecg = [item for elem in self.ecg_wv for item in elem]
             ecg = ph.EvenlySignal(values = flat_ecg, sampling_freq = 63, signal_type = 'ecg')
             ecg.plot('r')
             #self.rr_wv.pop(0)
             pause(.001)
-    #    #8 msgs per bluetooth payload
-    #    self.rate = rospy.Rate(10)
-    #    ecg = msg.waveform
-    #    tm_pts, self.skinTemp_time = self.timeParse(previous_time=self.ecg_time,msg_split=63)
-    #    
-    #    for i in range(0,len(ecg)):
-    #        msg = SkinTemp()
-    #        msg.header = std_msgs.msg.Header()
-    #        msg.header.stamp = tm_pts[i]
-    #        #msg.header.stamp = rospy.Time.now()
-    #        msg.temp = ecg[i]
-    #        self.ecg_pub.publish(msg)
-    #        self.rate.sleep()
+
     def onBreath(self, msg):
-      #  self.rr_wv.append(msg.waveform)
-      #  print(len(self.rr_wv))
-      #  if len(self.rr_wv) >= 10: # Waveforms needed for 30s of data
-      #      flat_rr = [item for elem in self.rr_wv for item in elem]
-      #      rr = ph.EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
-      #      rr.plot()
-      #      #self.rr_wv.pop(0)
-      #      pause(1)
+        self.rr_wv.append(msg.waveform)
+        #print(len(self.rr_wv))
+        if len(self.rr_wv) >= 30: # 30 Waveforms needed for 30s of data
+            #Establish ROS Items
+            self.rate = rospy.Rate(10)
+            header = std_msgs.msg.Header()
+            stamp = rospy.Time.now()
             
+            #Calculate Features
+            flat_rr = [item for elem in self.rr_wv for item in elem]
+            rr = ph.EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
+            #rr.plot()
+            r_rate = ph.indicators.PeaksDescription.PeaksNum(delta=1)(rr)
+            lf_band = ph.indicators.FrequencyDomain.PowerInBand(freq_min=0,freq_max=0.25,method='fft')(rr)
+            hf_band = ph.indicators.FrequencyDomain.PowerInBand(freq_min=0.25,freq_max=5,method='fft')(rr)
+            pwr_ratio = lf_band/hf_band #I'm guessing it is lf/hf
             
+            #Build and Publish Msg
+            rwv = RWV()
+            rwv.header = header
+            rwv.stamp = stamp
+            rwv.r_wvf = flat_rr
+            rwv.r_rate = r_rate
+            rwv.lf_band = lf_band
+            rwv.hf_band = hf_band
+            rwv.pwr_ratio = pwr_ratio
+            self.rwv_pub.publish(rwv)
             
-        pass
+            self.rr_wv.pop(0)
+            #pause(.001)
+            self.rate.sleep()
+            
 
     @classmethod
     def timeParse(cls, previous_time, msg_split):        
