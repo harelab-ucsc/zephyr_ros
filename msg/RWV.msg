@@ -2,7 +2,7 @@ Header header
 #Respiration Waveform msg with Features
 
 # respiration waveform: The 30s of data used to calculate the below features
-Float32MultiArray  r_wvf
+# Float32MultiArray  r_wvf
 
 # r_rate: respiration rate
 uint16  r_rate

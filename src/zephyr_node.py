@@ -212,7 +212,8 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         myargs.address = str(sys.argv[2])
     else:
-        myargs.address = 'A4:34:F1:F1:67:8F'
+        pass
+        # myargs.address = 'A4:34:F1:F1:67:8F'
         #myargs.address = 'test'
         
     actions = ROSActions()

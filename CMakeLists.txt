@@ -52,6 +52,8 @@ catkin_python_setup()
    Breath.msg
    Heartrate.msg
    HRV.msg
+   ECG.msg
+   RWV.msg
  )
 
 ## Generate services in the 'srv' folder

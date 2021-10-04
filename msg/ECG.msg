@@ -2,7 +2,7 @@ Header header
 # ECG Waveform msg with Features
 
 # ecg_wvf: ECG waveform; The 30s of data used to calculate the below features
-Float32MultiArray  ecg_wvf
+# Float32MultiArray  ecg_wvf
 
 # rmssd: the square root of the mean of the squared 1st order discrete differences
 float32 rmssd
