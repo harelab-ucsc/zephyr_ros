@@ -10,7 +10,12 @@ import std_msgs.msg
 from core_z.zephyr_dev_async import *
 from zephyr.msg import *
 
-import pyphysio as ph
+# import pyphysio as ph
+import pyphysio.indicators.TimeDomain as td_ind
+import pyphysio.indicators.FrequencyDomain as fd_ind
+import pyphysio.indicators.NonLinearDomain as nl_ind
+import pyphysio.indicators.PeaksDescription as pd_ind
+from pyphysio import EvenlySignal
 
 """Need 30s per waveform for accurate detection (Heard & Adams Paper)
 
@@ -33,10 +38,9 @@ class ROSActions(ZephyrDataActions):
         self.hrv_pub = rospy.Publisher('hrv', HRV, queue_size=10)
         self.br_pub = rospy.Publisher('br', Breath, queue_size=10)
         
-        #self.ecg_pub = rospy.Publisher('ECG', SkinTemp, queue_size=10)        
+        self.ecg_pub = rospy.Publisher('ecg', ECG, queue_size=10)
         self.rwv_pub = rospy.Publisher('rwv', RWV, queue_size=10)
-        
-        
+
         self.rr_wv = []
         self.ecg_wv = []
         
@@ -79,11 +83,79 @@ class ROSActions(ZephyrDataActions):
         self.ecg_wv.append(msg.waveform)
         #print(len(self.ecg_wv))
         if len(self.ecg_wv) >= 10: # 119 Waveforms needed for 30s of data
+            header = std_msgs.msg.Header()
+            stamp = rospy.Time.now()
+
             flat_ecg = [item for elem in self.ecg_wv for item in elem]
-            ecg = ph.EvenlySignal(values = flat_ecg, sampling_freq = 63, signal_type = 'ecg')
-            ecg.plot('r')
-            #self.rr_wv.pop(0)
-            pause(.001)
+            ecg = EvenlySignal(values=flat_ecg, sampling_freq=63, signal_type='ecg')
+
+            # Time Domain Indicators
+            rmssd = td_ind.RMSSD(name="RMSSD")(ecg)
+            sdsd = td_ind.SDSD(name="SDSD")(ecg)
+            rr_mean = td_ind.Mean(name="Mean")(ecg)
+            rr_std = td_ind.StDev(name="RRstd")(ecg)
+            rr_median = td_ind.Median(name="Median")(ecg)
+            mn = td_ind.Min(name="Min")(ecg)
+            mx = td_ind.Max(name="Max")(ecg)
+            triang = td_ind.Triang(name="Triang")(ecg)
+            tinn = td_ind.Triang(name="TINN")(ecg)
+
+            # Non-linear Domain Indicators
+            pnn10 = nl_ind.PNNx(threshold=10, name="pnn10")(ecg)
+            pnn25 = nl_ind.PNNx(threshold=25, name="pnn25")(ecg)
+            pnn50 = nl_ind.PNNx(threshold=50, name="pnn50")(ecg)
+            sd1 = nl_ind.PoincareSD1(name="sd1")(ecg)
+            sd2 = nl_ind.PoincareSD2(name="sd2")(ecg)
+            sd12 = nl_ind.PoincareSD1SD2(name="sd12")(ecg)
+            sdell = nl_ind.PoinEll(name="sdell")(ecg)
+            # Commented out because of long computation time
+            # dfa1 = ph.indicators.NonLinearDomain.DFAShortTerm(name="DFA1")(ecg)
+            # dfa2 = ph.indicators.NonLinearDomain.DFALongTerm(name="DFA2")(ecg)
+            # approx_entr = ph.indicators.NonLinearDomain.ApproxEntropy(name="Approx_Entropy")(ecg)
+            # samp_entr = ph.indicators.NonLinearDomain.SampleEntropy(name="Samp_Entropy")(ecg)
+
+            # Frequency Domain Indicators
+            method = 'fft'
+            vlf = fd_ind.PowerInBand(interp_freq=4, freq_max=0.04, freq_min=0.00001, method=method, name="VLF_Pow")(ecg)
+            lf = fd_ind.PowerInBand(interp_freq=4, freq_max=0.15, freq_min=0.04, method=method, name="LF_Pow")(ecg)
+            hf = fd_ind.PowerInBand(interp_freq=4, freq_max=0.4, freq_min=0.15, method=method, name="HF_Pow")(ecg)
+            total = fd_ind.PowerInBand(interp_freq=4, freq_max=2, freq_min=0.00001, method=method, name="Total_Pow")(ecg)
+
+            # Message
+            ecg_msg = ECG()
+            ecg_msg.header = header
+            ecg_msg.stamp = stamp
+            ecg_msg.rmssd = rmssd
+            ecg_msg.sdsd = sdsd
+            ecg_msg.rr_mean = rr_mean
+            ecg_msg.rr_std = rr_std
+            ecg_msg.rr_median = rr_median
+            ecg_msg.pnn10 = pnn10
+            ecg_msg.pnn25 = pnn25
+            ecg_msg.pnn50 = pnn50
+            ecg_msg.min = mn
+            ecg_msg.max = mx
+            ecg_msg.triang = triang
+            ecg_msg.tinn = tinn
+            ecg_msg.sd1 = sd1
+            ecg_msg.sd2 = sd2
+            ecg_msg.sd12 = sd12
+            ecg_msg.sdell = sdell
+            # ecg_msg.dfa1 = dfa1
+            # ecg_msg.dfa2 = dfa2
+            # ecg_msg.approx_entr = approx_entr
+            # ecg_msg.samp_entr = samp_entr
+            ecg_msg.vlf_band = vlf
+            ecg_msg.lf_band = lf
+            ecg_msg.hf_band = hf
+            ecg_msg.total_pwr = total
+
+            self.ecg_pub.publish(ecg_msg)
+
+            self.ecg_wv.pop(0)
+            self.rate.sleep()
+            # ecg.plot('r')
+            # pause(.001)
 
     def onBreath(self, msg):
         self.rr_wv.append(msg.waveform)
@@ -96,11 +168,11 @@ class ROSActions(ZephyrDataActions):
             
             #Calculate Features
             flat_rr = [item for elem in self.rr_wv for item in elem]
-            rr = ph.EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
+            rr = EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
             #rr.plot()
-            r_rate = ph.indicators.PeaksDescription.PeaksNum(delta=1)(rr)
-            lf_band = ph.indicators.FrequencyDomain.PowerInBand(freq_min=0,freq_max=0.25,method='fft')(rr)
-            hf_band = ph.indicators.FrequencyDomain.PowerInBand(freq_min=0.25,freq_max=5,method='fft')(rr)
+            r_rate = pd_ind.PeaksNum(delta=1)(rr)
+            lf_band = fd_ind.PowerInBand(freq_min=0,freq_max=0.25,method='fft')(rr)
+            hf_band = fd_ind.PowerInBand(freq_min=0.25,freq_max=5,method='fft')(rr)
             pwr_ratio = lf_band/hf_band #I'm guessing it is lf/hf
             
             #Build and Publish Msg
