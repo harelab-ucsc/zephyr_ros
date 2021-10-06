@@ -2,7 +2,7 @@ Header header
 # ECG Waveform msg with Features
 
 # ecg_wvf: ECG waveform; The 30s of data used to calculate the below features
-# Float32MultiArray  ecg_wvf
+std_msgs/Float32MultiArray  ecg_wvf
 
 # rmssd: the square root of the mean of the squared 1st order discrete differences
 float32 rmssd
@@ -26,10 +26,10 @@ float32 min
 float32 max
 
 # triang: HRV triangular index
-float32 triang
+# float32 triang
 
 # tinn: the triangular interpolation of NN interval histogram
-float32 tinn
+# float32 tinn
 
 # pnn10: Percentage of successive RR intervals that differ by more than 10ms
 float32 pnn10

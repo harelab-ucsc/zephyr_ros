@@ -50,7 +50,7 @@ class ROSActions(ZephyrDataActions):
         header = std_msgs.msg.Header()
         stamp = rospy.Time.now()
         content = msg.as_dict()
-        
+        print('1')
         #Heart Rate 
         hr = Heartrate()
         hr.header = header
@@ -59,7 +59,7 @@ class ROSActions(ZephyrDataActions):
         hr.confidence = content['heart_rate_confidence']
         hr.reliable = not(content['heart_rate_unreliable'])
         self.hr_pub.publish(hr)
-        
+        print('2')
         #Heart Rate Variablity
         hrv = HRV()
         hrv.header = header
@@ -67,7 +67,7 @@ class ROSActions(ZephyrDataActions):
         hrv.variation = content['heart_rate_variability']
         hrv.reliable = not(content['hrv_unreliable'])
         self.hrv_pub.publish(hrv)
-        
+        print('3')
         #Breathing Rate
         br = Breath()
         br.header = header
@@ -81,13 +81,23 @@ class ROSActions(ZephyrDataActions):
             
     def onECG(self, msg):
         self.ecg_wv.append(msg.waveform)
-        #print(len(self.ecg_wv))
+        # print(len(self.ecg_wv))
         if len(self.ecg_wv) >= 10: # 119 Waveforms needed for 30s of data
             header = std_msgs.msg.Header()
             stamp = rospy.Time.now()
 
             flat_ecg = [item for elem in self.ecg_wv for item in elem]
             ecg = EvenlySignal(values=flat_ecg, sampling_freq=63, signal_type='ecg')
+
+            # Create Float32MultiArray msg object for waveform data
+            wvf_array = std_msgs.msg.Float32MultiArray()
+            wvf_array.layout.data_offset = 0 
+            wvf_array.layout.dim = [std_msgs.msg.MultiArrayDimension()]
+            wvf_array.layout.dim[0].label = "ecg_waveform"
+            wvf_array.layout.dim[0].size = len(flat_ecg)
+            wvf_array.layout.dim[0].stride = 1
+
+            wvf_array.data = flat_ecg
 
             # Time Domain Indicators
             rmssd = td_ind.RMSSD(name="RMSSD")(ecg)
@@ -97,8 +107,8 @@ class ROSActions(ZephyrDataActions):
             rr_median = td_ind.Median(name="Median")(ecg)
             mn = td_ind.Min(name="Min")(ecg)
             mx = td_ind.Max(name="Max")(ecg)
-            triang = td_ind.Triang(name="Triang")(ecg)
-            tinn = td_ind.Triang(name="TINN")(ecg)
+            # triang = td_ind.Triang(name="Triang")(ecg)
+            # tinn = td_ind.Triang(name="TINN")(ecg)
 
             # Non-linear Domain Indicators
             pnn10 = nl_ind.PNNx(threshold=10, name="pnn10")(ecg)
@@ -120,11 +130,12 @@ class ROSActions(ZephyrDataActions):
             lf = fd_ind.PowerInBand(interp_freq=4, freq_max=0.15, freq_min=0.04, method=method, name="LF_Pow")(ecg)
             hf = fd_ind.PowerInBand(interp_freq=4, freq_max=0.4, freq_min=0.15, method=method, name="HF_Pow")(ecg)
             total = fd_ind.PowerInBand(interp_freq=4, freq_max=2, freq_min=0.00001, method=method, name="Total_Pow")(ecg)
-
+            
             # Message
             ecg_msg = ECG()
             ecg_msg.header = header
-            ecg_msg.stamp = stamp
+            ecg_msg.header.stamp = stamp
+            ecg_msg.ecg_wvf = wvf_array
             ecg_msg.rmssd = rmssd
             ecg_msg.sdsd = sdsd
             ecg_msg.rr_mean = rr_mean
@@ -135,8 +146,8 @@ class ROSActions(ZephyrDataActions):
             ecg_msg.pnn50 = pnn50
             ecg_msg.min = mn
             ecg_msg.max = mx
-            ecg_msg.triang = triang
-            ecg_msg.tinn = tinn
+            # ecg_msg.triang = triang
+            # ecg_msg.tinn = tinn
             ecg_msg.sd1 = sd1
             ecg_msg.sd2 = sd2
             ecg_msg.sd12 = sd12
@@ -169,17 +180,30 @@ class ROSActions(ZephyrDataActions):
             #Calculate Features
             flat_rr = [item for elem in self.rr_wv for item in elem]
             rr = EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
+
+            # Create Float32MultiArray msg object for waveform data
+            wvf_array = std_msgs.msg.Float32MultiArray()
+            wvf_array.layout.data_offset = 0 
+            wvf_array.layout.dim = [std_msgs.msg.MultiArrayDimension()]
+            wvf_array.layout.dim[0].label = "resp_waveform"
+            wvf_array.layout.dim[0].size = len(flat_rr)
+            wvf_array.layout.dim[0].stride = 1
+
+            wvf_array.data = flat_rr
             #rr.plot()
             r_rate = pd_ind.PeaksNum(delta=1)(rr)
             lf_band = fd_ind.PowerInBand(freq_min=0,freq_max=0.25,method='fft')(rr)
             hf_band = fd_ind.PowerInBand(freq_min=0.25,freq_max=5,method='fft')(rr)
-            pwr_ratio = lf_band/hf_band #I'm guessing it is lf/hf
-            
+            if hf_band != 0:
+                pwr_ratio = lf_band/hf_band #I'm guessing it is lf/hf
+            else:
+                pwr_ratio = 0
+
             #Build and Publish Msg
             rwv = RWV()
             rwv.header = header
-            rwv.stamp = stamp
-            rwv.r_wvf = flat_rr
+            rwv.header.stamp = stamp
+            rwv.r_wvf = wvf_array
             rwv.r_rate = r_rate
             rwv.lf_band = lf_band
             rwv.hf_band = hf_band
