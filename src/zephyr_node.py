@@ -48,9 +48,9 @@ class ROSActions(ZephyrDataActions):
     def onSummary(self,msg):
         self.rate = rospy.Rate(10)
         header = std_msgs.msg.Header()
-        stamp = rospy.Time.now()
+        stamp = rospy.Time.from_sec(msg.stamp)
         content = msg.as_dict()
-        print('1')
+        
         #Heart Rate 
         hr = Heartrate()
         hr.header = header
@@ -59,7 +59,7 @@ class ROSActions(ZephyrDataActions):
         hr.confidence = content['heart_rate_confidence']
         hr.reliable = not(content['heart_rate_unreliable'])
         self.hr_pub.publish(hr)
-        print('2')
+        
         #Heart Rate Variablity
         hrv = HRV()
         hrv.header = header
@@ -67,7 +67,7 @@ class ROSActions(ZephyrDataActions):
         hrv.variation = content['heart_rate_variability']
         hrv.reliable = not(content['hrv_unreliable'])
         self.hrv_pub.publish(hrv)
-        print('3')
+        
         #Breathing Rate
         br = Breath()
         br.header = header
@@ -84,7 +84,7 @@ class ROSActions(ZephyrDataActions):
         # print(len(self.ecg_wv))
         if len(self.ecg_wv) >= 10: # 119 Waveforms needed for 30s of data
             header = std_msgs.msg.Header()
-            stamp = rospy.Time.now()
+            stamp = rospy.Time.from_sec(msg.stamp)
 
             flat_ecg = [item for elem in self.ecg_wv for item in elem]
             ecg = EvenlySignal(values=flat_ecg, sampling_freq=63, signal_type='ecg')
@@ -175,7 +175,7 @@ class ROSActions(ZephyrDataActions):
             #Establish ROS Items
             self.rate = rospy.Rate(10)
             header = std_msgs.msg.Header()
-            stamp = rospy.Time.now()
+            stamp = rospy.Time.from_sec(msg.stamp)
             
             #Calculate Features
             flat_rr = [item for elem in self.rr_wv for item in elem]
