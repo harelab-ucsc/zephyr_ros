@@ -82,7 +82,7 @@ class ROSActions(ZephyrDataActions):
     def onECG(self, msg):
         self.ecg_wv.append(msg.waveform)
         # print(len(self.ecg_wv))
-        if len(self.ecg_wv) >= 10: # 119 Waveforms needed for 30s of data
+        if len(self.ecg_wv) >= 119: # 119 Waveforms needed for 30s of data
             header = std_msgs.msg.Header()
             stamp = rospy.Time.from_sec(msg.stamp)
 

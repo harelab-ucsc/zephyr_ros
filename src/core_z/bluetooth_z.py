@@ -11,6 +11,11 @@ import bluetooth
 from core_z.protocol import encode_message, MC, MI, Message, decode_bytestream
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s | %(message)s')
+logHandler = logging.StreamHandler(sys.stdout)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
 
 __all__ = ['BioharnessIO']
 

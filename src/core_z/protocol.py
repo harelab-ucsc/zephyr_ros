@@ -2,6 +2,7 @@
 logic. This implements only a fraction of the device functionality as needed for
 data streaming."""
 
+import sys
 import enum
 import math
 import functools
@@ -19,6 +20,11 @@ __all__ = ['MessageConstants', 'Message', 'MC', 'MI', 'encode_message',
            'get_unit']
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s | %(message)s')
+logHandler = logging.StreamHandler(sys.stdout)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
 
 
 class MessageConstants(enum.IntEnum):

@@ -1,5 +1,6 @@
 """Main class to interact with the BHT device."""
 
+import sys
 import logging
 import queue
 import asyncio
@@ -9,6 +10,11 @@ from .bluetooth_z import BioharnessIO
 from .protocol import Message, MI, periodic_messages, transmit_state2data_packet
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s | %(message)s')
+logHandler = logging.StreamHandler(sys.stdout)
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
 
 
 class BioHarness:
