@@ -2,6 +2,7 @@
 
  #"args": ["--address A4:34:F1:EA:1C:A2"]
 import sys
+import math
 
 from matplotlib.pyplot import pause
 import rospy
@@ -164,34 +165,39 @@ class ROSActions(ZephyrDataActions):
             self.ecg_pub.publish(ecg_msg)
 
             self.ecg_wv.pop(0)
-            self.rate.sleep()
+            # self.rate.sleep()
             # ecg.plot('r')
             # pause(.001)
 
     def onBreath(self, msg):
         self.rr_wv.append(msg.waveform)
-        #print(len(self.rr_wv))
+        
         if len(self.rr_wv) >= 30: # 30 Waveforms needed for 30s of data
             #Establish ROS Items
             self.rate = rospy.Rate(10)
             header = std_msgs.msg.Header()
             stamp = rospy.Time.from_sec(msg.stamp)
-            
+
             #Calculate Features
             flat_rr = [item for elem in self.rr_wv for item in elem]
-            rr = EvenlySignal(values = flat_rr, sampling_freq = 18, signal_type = 'rr')
+            original_data_num = len(flat_rr)
+            new_rr = [x for x in flat_rr.copy() if math.isnan(x) == False] # removes nan's for feature extraction
+            new_data_num = len(new_rr)
+            reliability = new_data_num/original_data_num # gives us an idea of how many nan's were present
+
+            rr = EvenlySignal(values = new_rr, sampling_freq = 18, signal_type = 'rr')
 
             # Create Float32MultiArray msg object for waveform data
             wvf_array = std_msgs.msg.Float32MultiArray()
             wvf_array.layout.data_offset = 0 
             wvf_array.layout.dim = [std_msgs.msg.MultiArrayDimension()]
             wvf_array.layout.dim[0].label = "resp_waveform"
-            wvf_array.layout.dim[0].size = len(flat_rr)
+            wvf_array.layout.dim[0].size = len(new_rr)
             wvf_array.layout.dim[0].stride = 1
 
-            wvf_array.data = flat_rr
+            wvf_array.data = flat_rr # maintain original data with nan's for playback
             #rr.plot()
-            r_rate = pd_ind.PeaksNum(delta=1)(rr)
+            r_rate = pd_ind.PeaksNum(delta=1)(rr) #bpm/2
             lf_band = fd_ind.PowerInBand(freq_min=0,freq_max=0.25,method='fft')(rr)
             hf_band = fd_ind.PowerInBand(freq_min=0.25,freq_max=5,method='fft')(rr)
             if hf_band != 0:
@@ -208,11 +214,18 @@ class ROSActions(ZephyrDataActions):
             rwv.lf_band = lf_band
             rwv.hf_band = hf_band
             rwv.pwr_ratio = pwr_ratio
+            rwv.reliability = reliability
             self.rwv_pub.publish(rwv)
+            # try:
+            #     self.rwv_pub.publish(rwv)
+            # except Exception as e:
+            #     print("ERROR:", e)
+            # print("\n<< 7 >>\n")
+            # print(self.rr_wv)
             
             self.rr_wv.pop(0)
             #pause(.001)
-            self.rate.sleep()
+            # self.rate.sleep()
             
 
     @classmethod
@@ -233,12 +246,13 @@ if __name__ == '__main__':
     rospy.init_node('zephyr_node', anonymous=True)
     rosargs = rospy.myargv(argv=sys.argv)
     myargs = getArgs(rosargs)  
-    if len(sys.argv) > 1:
-        myargs.address = str(sys.argv[2])
-    else:
-        pass
-        # myargs.address = 'A4:34:F1:F1:67:8F'
-        #myargs.address = 'test'
+    # if len(sys.argv) > 1:
+    #     myargs.address = str(sys.argv[2])
+    # else:
+    #     pass
+    #     # myargs.address = 'A4:34:F1:F1:67:8F'
+    #     #myargs.address = 'test'
+    myargs.address = ''
         
     actions = ROSActions()
     

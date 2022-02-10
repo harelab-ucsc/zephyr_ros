@@ -15,3 +15,6 @@ float32 hf_band
 
 # pwr_ratio: power ratio between high and low frequency bands
 float32 pwr_ratio
+
+# reliability: valid data / total data in 30s
+float32 reliability
